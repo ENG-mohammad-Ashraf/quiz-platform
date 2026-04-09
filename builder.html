@@ -12,13 +12,14 @@
         body { background: linear-gradient(135deg, #f0f9ff 0%, #e0f2fe 100%); min-height: 100vh; }
         .btn-primary { background: linear-gradient(135deg, #4f46e5 0%, #6366f1 100%); }
         .btn-save { background: linear-gradient(135deg, #10b981 0%, #059669 100%); }
-        .question-card { transition: 0.2s; }
-        input:focus, textarea:focus { outline: none; box-shadow: 0 0 0 3px rgba(79,70,229,0.2); border-color: #4f46e5; }
+        .question-card { transition: 0.2s; margin-bottom: 1rem; }
         .toast { position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%); background: #1e293b; color: white; padding: 12px 24px; border-radius: 12px; z-index: 1000; animation: fadeInOut 3s ease; }
-        @keyframes fadeInOut { 0% { opacity: 0; transform: translateX(-50%) translateY(20px); } 10% { opacity: 1; transform: translateX(-50%) translateY(0); } 90% { opacity: 1; } 100% { opacity: 0; transform: translateX(-50%) translateY(-20px); } }
+        @keyframes fadeInOut { 0% { opacity: 0; } 10% { opacity: 1; } 90% { opacity: 1; } 100% { opacity: 0; } }
+        input, textarea { transition: all 0.2s; }
+        input:focus { border-color: #4f46e5; outline: none; box-shadow: 0 0 0 2px rgba(79,70,229,0.2); }
     </style>
 </head>
-<body class="antialiased">
+<body>
     <div class="max-w-6xl mx-auto px-4 py-8">
         <div class="bg-white rounded-2xl p-6 mb-8 shadow-md">
             <div class="flex flex-wrap justify-between items-center gap-4">
@@ -32,10 +33,10 @@
                     </div>
                 </div>
                 <div class="flex gap-3">
-                    <button id="saveToStorageBtn" class="btn-save text-white px-5 py-2 rounded-xl shadow-md transition hover:scale-105">
+                    <button id="saveToStorageBtn" class="btn-save text-white px-5 py-2 rounded-xl shadow-md hover:scale-105 transition">
                         <i class="fas fa-save ml-2"></i> حفظ ونشر للمستخدمين
                     </button>
-                    <button id="addQuestionBtn" class="btn-primary text-white px-5 py-2 rounded-xl shadow-md transition hover:scale-105">
+                    <button id="addQuestionBtn" class="btn-primary text-white px-5 py-2 rounded-xl shadow-md hover:scale-105 transition">
                         <i class="fas fa-plus-circle ml-2"></i> إضافة سؤال
                     </button>
                 </div>
@@ -66,6 +67,16 @@
             if (stored) {
                 try {
                     questions = JSON.parse(stored);
+                    // تأكد من وجود choices في كل سؤال
+                    questions = questions.map(q => {
+                        if (!q.choices || !Array.isArray(q.choices) || q.choices.length === 0) {
+                            q.choices = ["خيار 1", "خيار 2", "خيار 3"];
+                        }
+                        if (q.correctChoiceIndex === undefined || q.correctChoiceIndex >= q.choices.length) {
+                            q.correctChoiceIndex = 0;
+                        }
+                        return q;
+                    });
                 } catch(e) { questions = getDefaultQuestions(); }
             } else {
                 questions = getDefaultQuestions();
@@ -131,12 +142,30 @@
         }
 
         function publishToUsers() {
-            localStorage.setItem(STORAGE_KEY, JSON.stringify(questions));
-            showToast("✅ تم حفظ الأسئلة! المستخدمون سيرون التحديثات عند تحديث الصفحة", "success");
+            // قبل الحفظ، تأكد من أن جميع الأسئلة لديها choices صالحة
+            const validQuestions = questions.map(q => {
+                if (!q.choices || q.choices.length === 0) {
+                    q.choices = ["خيار 1", "خيار 2", "خيار 3"];
+                }
+                if (q.correctChoiceIndex === undefined || q.correctChoiceIndex >= q.choices.length) {
+                    q.correctChoiceIndex = 0;
+                }
+                return q;
+            });
+            localStorage.setItem(STORAGE_KEY, JSON.stringify(validQuestions));
+            showToast("✅ تم حفظ الأسئلة بنجاح! المستخدمون سيرون التحديثات عند تحديث الصفحة", "success");
+            // إعادة تحميل للتأكد
+            loadQuestions();
         }
 
         function addNewQuestion() {
-            questions.push({ id: generateId(), text: "سؤال جديد", choices: ["خيار 1", "خيار 2", "خيار 3"], correctChoiceIndex: 0 });
+            const newId = generateId();
+            questions.push({
+                id: newId,
+                text: "سؤال جديد",
+                choices: ["خيار 1", "خيار 2", "خيار 3"],
+                correctChoiceIndex: 0
+            });
             renderQuestions();
             showToast("✨ تم إضافة سؤال جديد (اضغط حفظ لنشره)", "info");
         }
@@ -149,7 +178,10 @@
 
         function addChoiceToQuestion(qid) {
             const q = questions.find(q => q.id === qid);
-            if (q) { q.choices.push(`خيار ${q.choices.length + 1}`); renderQuestions(); }
+            if (q) {
+                q.choices.push(`خيار ${q.choices.length + 1}`);
+                renderQuestions();
+            }
         }
 
         function removeChoiceFromQuestion(qid, choiceIdx) {
@@ -170,7 +202,9 @@
 
         function updateChoiceText(qid, choiceIdx, newText) {
             const q = questions.find(q => q.id === qid);
-            if (q && q.choices[choiceIdx]) q.choices[choiceIdx] = newText;
+            if (q && q.choices[choiceIdx] !== undefined) {
+                q.choices[choiceIdx] = newText;
+            }
         }
 
         function updateCorrectAnswer(qid, choiceIdx) {
@@ -209,7 +243,9 @@
                     updateQuestionText(e.target.getAttribute('data-qid'), e.target.value);
                 }
                 if (e.target.classList.contains('choice-text')) {
-                    updateChoiceText(e.target.getAttribute('data-qid'), parseInt(e.target.getAttribute('data-choice-idx')), e.target.value);
+                    const qid = e.target.getAttribute('data-qid');
+                    const choiceIdx = parseInt(e.target.getAttribute('data-choice-idx'), 10);
+                    updateChoiceText(qid, choiceIdx, e.target.value);
                 }
             });
 
@@ -228,7 +264,7 @@
 
                 const remChoice = e.target.closest('.remove-choice');
                 if (remChoice) {
-                    removeChoiceFromQuestion(remChoice.getAttribute('data-qid'), parseInt(remChoice.getAttribute('data-choice-idx')));
+                    removeChoiceFromQuestion(remChoice.getAttribute('data-qid'), parseInt(remChoice.getAttribute('data-choice-idx'), 10));
                     return;
                 }
             });
