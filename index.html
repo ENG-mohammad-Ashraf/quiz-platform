@@ -7,40 +7,20 @@
     <link href="https://fonts.googleapis.com/css2?family=Tajawal:wght@400;500;700;800&display=swap" rel="stylesheet">
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
-    
-    <!-- حل مشكلة localStorage على GitHub Pages -->
-    <script type="importmap">
-        {
-            "imports": {
-                "github-pages-local-storage": "https://tomashubelbauer.github.io/github-pages-local-storage/index.js"
-            }
-        }
-    </script>
-    <script type="module">
-        import 'github-pages-local-storage';
-        console.log('✅ localStorage patched for GitHub Pages - Quiz User');
-    </script>
-    
     <style>
         * { font-family: 'Tajawal', sans-serif; }
         body { background: linear-gradient(135deg, #f1f5f9 0%, #e2e8f0 100%); min-height: 100vh; }
         .question-card { transition: 0.2s; border-right: 4px solid transparent; }
         .question-card:hover { transform: translateX(-3px); box-shadow: 0 8px 20px rgba(0,0,0,0.08); }
         .btn-submit { background: linear-gradient(135deg, #10b981 0%, #059669 100%); }
-        .btn-submit:hover { transform: scale(1.02); }
-        .correct-highlight { background: linear-gradient(90deg, #dcfce7 0%, #f0fdf4 100%); border-right-color: #22c55e; }
-        .wrong-highlight { background: linear-gradient(90deg, #fee2e2 0%, #fef2f2 100%); border-right-color: #ef4444; }
         @keyframes fadeIn { from { opacity: 0; transform: translateY(15px); } to { opacity: 1; transform: translateY(0); } }
         .animate-fade { animation: fadeIn 0.4s ease-out; }
         .loading { display: flex; justify-content: center; align-items: center; min-height: 400px; }
-        .toast { position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%); background: #1e293b; color: white; padding: 10px 20px; border-radius: 12px; z-index: 1000; animation: fadeInOut 3s ease; font-size: 14px; }
-        @keyframes fadeInOut { 0% { opacity: 0; transform: translateX(-50%) translateY(20px); } 10% { opacity: 1; transform: translateX(-50%) translateY(0); } 90% { opacity: 1; } 100% { opacity: 0; transform: translateX(-50%) translateY(-20px); } }
-        @media print { .no-print { display: none; } body { background: white; } .question-card { break-inside: avoid; } }
+        @media print { .no-print { display: none; } body { background: white; } }
     </style>
 </head>
 <body>
     <div class="max-w-4xl mx-auto px-4 py-8 md:py-12">
-        <!-- Header -->
         <div class="bg-white rounded-2xl p-6 mb-8 shadow-md text-center no-print">
             <div class="flex justify-center mb-3">
                 <div class="bg-emerald-600 w-14 h-14 rounded-2xl flex items-center justify-center shadow-lg">
@@ -48,13 +28,9 @@
                 </div>
             </div>
             <h1 class="text-2xl font-bold text-slate-800">الامتحان <span class="text-emerald-600">الإلكتروني</span></h1>
-            <p class="text-slate-500 text-sm mt-1">تم تحميل الأسئلة من لوحة التحكم - جميع التحديثات تظهر تلقائياً</p>
-            <div class="mt-2 text-xs text-emerald-600 bg-emerald-50 inline-block px-3 py-1 rounded-full">
-                <i class="fas fa-sync-alt ml-1"></i> يتم تحديث الأسئلة تلقائياً من المنشئ
-            </div>
+            <p class="text-slate-500 text-sm mt-1">تم تحميل الأسئلة من لوحة التحكم</p>
         </div>
 
-        <!-- Loading Indicator -->
         <div id="loadingIndicator" class="loading">
             <div class="text-center">
                 <div class="animate-spin rounded-full h-12 w-12 border-b-2 border-emerald-600 mx-auto"></div>
@@ -62,18 +38,14 @@
             </div>
         </div>
 
-        <!-- Quiz Container -->
         <div id="quizContainer" class="space-y-5 hidden"></div>
 
-        <!-- Submit Section -->
         <div id="submitArea" class="mt-8 text-center hidden no-print">
             <button id="submitQuizBtn" class="btn-submit text-white font-bold py-3 px-8 rounded-xl shadow-lg text-lg transition hover:scale-105">
                 <i class="fas fa-check-circle ml-2"></i> إنهاء الامتحان وتصحيح الإجابات
             </button>
-            <p class="text-slate-400 text-xs mt-3"><i class="fas fa-shield-alt"></i> سيتم تصحيح الامتحان تلقائياً بعد الإنهاء</p>
         </div>
 
-        <!-- Results Card -->
         <div id="resultCard" class="mt-8 bg-white rounded-2xl shadow-xl overflow-hidden hidden animate-fade"></div>
     </div>
 
@@ -81,30 +53,18 @@
         let quizQuestions = [];
         let userAnswers = [];
         let quizSubmitted = false;
-        let projectKey = 'quizPlatformQuestions'; // نفس المفتاح المستخدم في builder
+        const STORAGE_KEY = 'quizPlatformQuestions';
 
-        function showToast(msg, isError = false) {
-            let toast = document.getElementById('userToast');
-            if (toast) toast.remove();
-            toast = document.createElement('div');
-            toast.id = 'userToast';
-            toast.className = `toast ${isError ? 'bg-red-600' : 'bg-emerald-600'} text-white`;
-            toast.innerHTML = msg;
-            document.body.appendChild(toast);
-            setTimeout(() => { if(toast) toast.remove(); }, 3000);
-        }
-
-        // تحميل الأسئلة من localStorage (التي نشرها المنشئ من builder.html)
-        function loadQuestionsFromBuilder() {
-            const stored = localStorage.getItem(projectKey);
+        function loadQuestions() {
+            const stored = localStorage.getItem(STORAGE_KEY);
             
             if (!stored) {
                 document.getElementById('loadingIndicator').innerHTML = `
                     <div class="bg-amber-50 rounded-xl p-8 text-center border border-amber-200">
                         <i class="fas fa-exclamation-triangle text-amber-500 text-4xl mb-3"></i>
                         <p class="text-slate-700">لا توجد أسئلة متاحة حالياً.</p>
-                        <p class="text-slate-500 text-sm mt-2">يرجى التواصل مع المشرف لإضافة الأسئلة أولاً من لوحة التحكم.</p>
-                        <button onclick="location.reload()" class="mt-4 bg-emerald-600 text-white px-4 py-2 rounded-lg hover:bg-emerald-700 transition">🔄 إعادة المحاولة</button>
+                        <p class="text-slate-500 text-sm mt-2">يرجى التواصل مع المشرف لإضافة الأسئلة أولاً.</p>
+                        <button onclick="location.reload()" class="mt-4 bg-emerald-600 text-white px-4 py-2 rounded-lg">🔄 إعادة المحاولة</button>
                     </div>
                 `;
                 return false;
@@ -112,20 +72,11 @@
 
             try {
                 quizQuestions = JSON.parse(stored);
-                if (!Array.isArray(quizQuestions) || quizQuestions.length === 0) {
-                    throw new Error("لا توجد أسئلة");
-                }
+                if (!Array.isArray(quizQuestions) || quizQuestions.length === 0) throw new Error();
                 userAnswers = new Array(quizQuestions.length).fill(null);
                 return true;
             } catch(e) {
-                document.getElementById('loadingIndicator').innerHTML = `
-                    <div class="bg-red-50 rounded-xl p-8 text-center border border-red-200">
-                        <i class="fas fa-database text-red-400 text-4xl mb-3"></i>
-                        <p class="text-slate-700">حدث خطأ في تحميل الأسئلة.</p>
-                        <p class="text-slate-500 text-sm">${e.message}</p>
-                        <button onclick="location.reload()" class="mt-3 bg-emerald-600 text-white px-4 py-2 rounded-lg">إعادة المحاولة</button>
-                    </div>
-                `;
+                document.getElementById('loadingIndicator').innerHTML = `<div class="bg-red-50 rounded-xl p-8 text-center"><i class="fas fa-database text-red-400 text-3xl"></i><p>خطأ في تحميل الأسئلة</p></div>`;
                 return false;
             }
         }
@@ -133,16 +84,13 @@
         function renderQuiz() {
             const container = document.getElementById('quizContainer');
             const loadingDiv = document.getElementById('loadingIndicator');
-            
             if (!container) return;
 
             let html = `<div class="mb-4 flex justify-between items-center no-print">
                 <span class="text-sm bg-emerald-100 text-emerald-700 px-3 py-1.5 rounded-full"><i class="far fa-file-alt ml-1"></i> عدد الأسئلة: ${quizQuestions.length}</span>
-                <span class="text-xs text-slate-500"><i class="fas fa-info-circle ml-1"></i> اختر إجابة واحدة لكل سؤال</span>
             </div>`;
 
             quizQuestions.forEach((q, idx) => {
-                const questionText = escapeHtml(q.text);
                 let choicesHtml = '';
                 q.choices.forEach((choice, chIdx) => {
                     const isChecked = (userAnswers[idx] === chIdx) ? 'checked' : '';
@@ -162,11 +110,8 @@
                     
                     choicesHtml += `
                         <label class="flex items-center gap-3 p-3 rounded-xl border border-slate-200 hover:bg-slate-50 cursor-pointer transition ${additionalClass}">
-                            <input type="radio" name="q${idx}" value="${chIdx}" ${isChecked} data-qidx="${idx}" data-choice="${chIdx}" class="quiz-radio w-5 h-5 text-emerald-600 focus:ring-emerald-500" ${quizSubmitted ? 'disabled' : ''}>
-                            <div class="flex-1">
-                                <span class="font-medium text-slate-700">${escapeHtml(choice)}</span>
-                                ${badgeHtml}
-                            </div>
+                            <input type="radio" name="q${idx}" value="${chIdx}" ${isChecked} data-qidx="${idx}" data-choice="${chIdx}" class="quiz-radio w-5 h-5 text-emerald-600" ${quizSubmitted ? 'disabled' : ''}>
+                            <div class="flex-1"><span class="font-medium">${escapeHtml(choice)}</span>${badgeHtml}</div>
                         </label>
                     `;
                 });
@@ -176,12 +121,10 @@
                         <div class="p-5 bg-gradient-to-r from-slate-50 to-white">
                             <h3 class="font-bold text-slate-800 text-lg flex gap-3">
                                 <span class="bg-emerald-100 text-emerald-700 w-7 h-7 rounded-full inline-flex items-center justify-center text-sm font-bold">${idx+1}</span>
-                                ${questionText}
+                                ${escapeHtml(q.text)}
                             </h3>
                         </div>
-                        <div class="p-4 space-y-2">
-                            ${choicesHtml}
-                        </div>
+                        <div class="p-4 space-y-2">${choicesHtml}</div>
                     </div>
                 `;
             });
@@ -191,9 +134,7 @@
             container.classList.remove('hidden');
             document.getElementById('submitArea')?.classList.remove('hidden');
             
-            if (!quizSubmitted) {
-                attachRadioEvents();
-            }
+            if (!quizSubmitted) attachRadioEvents();
         }
 
         function attachRadioEvents() {
@@ -212,26 +153,17 @@
 
         function submitQuiz() {
             if (quizSubmitted) return;
-            
-            const unanswered = userAnswers.some((ans, idx) => ans === null);
-            if (unanswered) {
-                showToast("⚠️ يرجى الإجابة على جميع الأسئلة قبل إنهاء الامتحان.", true);
+            if (userAnswers.some(ans => ans === null)) {
+                alert("⚠️ يرجى الإجابة على جميع الأسئلة");
                 return;
             }
 
             quizSubmitted = true;
-
             let score = 0;
             const results = quizQuestions.map((q, idx) => {
                 const isCorrect = (userAnswers[idx] === q.correctChoiceIndex);
                 if (isCorrect) score++;
-                return {
-                    questionText: q.text,
-                    userChoice: userAnswers[idx],
-                    correctIndex: q.correctChoiceIndex,
-                    choices: q.choices,
-                    isCorrect
-                };
+                return { questionText: q.text, userChoice: userAnswers[idx], correctIndex: q.correctChoiceIndex, choices: q.choices, isCorrect };
             });
 
             const percentage = Math.round((score / quizQuestions.length) * 100);
@@ -243,37 +175,31 @@
             const resultDiv = document.getElementById('resultCard');
             let gradeClass = percentage >= 70 ? 'text-emerald-600' : (percentage >= 50 ? 'text-amber-600' : 'text-rose-600');
             let icon = percentage >= 70 ? 'fa-crown' : (percentage >= 50 ? 'fa-face-smile' : 'fa-book');
-            let feedback = percentage >= 70 ? 'ممتاز! أداء رائع 🎉' : (percentage >= 50 ? 'جيد جدًا، يمكنك التحسين 📚' : 'بحاجة للمزيد من المذاكرة 💪');
+            let feedback = percentage >= 70 ? 'ممتاز! أداء رائع 🎉' : (percentage >= 50 ? 'جيد جدًا 📚' : 'بحاجة للمذاكرة 💪');
             
             let html = `
                 <div class="p-6 text-center bg-gradient-to-br from-slate-50 to-white">
                     <i class="fas ${icon} text-5xl ${gradeClass} mb-3"></i>
-                    <h2 class="text-2xl font-bold text-slate-800">نتيجتك: ${score} / ${total}</h2>
+                    <h2 class="text-2xl font-bold">نتيجتك: ${score} / ${total}</h2>
                     <div class="text-4xl font-extrabold ${gradeClass} mt-2">${percentage}%</div>
                     <p class="text-slate-500 mt-2">${feedback}</p>
-                    <div class="w-full bg-slate-200 rounded-full h-2.5 mt-4">
-                        <div class="bg-emerald-500 h-2.5 rounded-full transition-all duration-500" style="width: ${percentage}%"></div>
-                    </div>
                 </div>
                 <div class="p-5 max-h-96 overflow-y-auto">
-                    <h4 class="font-bold mb-3 text-slate-700"><i class="fas fa-clipboard-list text-emerald-500 ml-2"></i> مراجعة الإجابات</h4>
-            `;
+                    <h4 class="font-bold mb-3">مراجعة الإجابات</h4>`;
             
             results.forEach((r, i) => {
                 const userText = r.userChoice !== null ? escapeHtml(r.choices[r.userChoice]) : "لم يتم الإجابة";
                 const correctText = escapeHtml(r.choices[r.correctIndex]);
-                html += `
-                    <div class="mb-4 p-3 rounded-xl ${r.isCorrect ? 'bg-emerald-50 border-r-4 border-emerald-500' : 'bg-rose-50 border-r-4 border-rose-400'}">
-                        <p class="font-bold text-slate-800">${i+1}. ${escapeHtml(r.questionText)}</p>
-                        <p class="text-sm mt-1"><span class="font-medium">إجابتك:</span> ${userText} ${r.isCorrect ? '✓' : '✗'}</p>
-                        ${!r.isCorrect ? `<p class="text-sm text-emerald-700 mt-1"><span class="font-medium">الإجابة الصحيحة:</span> ${correctText}</p>` : ''}
-                    </div>
-                `;
+                html += `<div class="mb-4 p-3 rounded-xl ${r.isCorrect ? 'bg-emerald-50 border-r-4 border-emerald-500' : 'bg-rose-50 border-r-4 border-rose-400'}">
+                    <p class="font-bold">${i+1}. ${escapeHtml(r.questionText)}</p>
+                    <p class="text-sm mt-1">إجابتك: ${userText} ${r.isCorrect ? '✓' : '✗'}</p>
+                    ${!r.isCorrect ? `<p class="text-sm text-emerald-700">الإجابة الصحيحة: ${correctText}</p>` : ''}
+                </div>`;
             });
             
             html += `</div><div class="p-4 bg-slate-50 flex justify-center gap-3 no-print">
-                        <button id="retakeBtn" class="bg-emerald-600 text-white px-6 py-2 rounded-xl hover:bg-emerald-700 transition"><i class="fas fa-sync-alt ml-2"></i> إعادة الامتحان</button>
-                        <button id="printBtn" class="bg-slate-600 text-white px-6 py-2 rounded-xl hover:bg-slate-700 transition"><i class="fas fa-print ml-2"></i> طباعة النتيجة</button>
+                        <button id="retakeBtn" class="bg-emerald-600 text-white px-6 py-2 rounded-xl">🔄 إعادة الامتحان</button>
+                        <button id="printBtn" class="bg-slate-600 text-white px-6 py-2 rounded-xl">🖨️ طباعة النتيجة</button>
                     </div>`;
             
             resultDiv.innerHTML = html;
@@ -291,7 +217,6 @@
             document.getElementById('resultCard').classList.add('hidden');
             document.getElementById('submitArea').classList.remove('hidden');
             window.scrollTo({ top: 0, behavior: 'smooth' });
-            showToast("✨ تم إعادة تعيين الامتحان، أجب مرة أخرى");
         }
 
         function escapeHtml(str) {
@@ -304,29 +229,8 @@
             });
         }
 
-        // رابط العودة إلى لوحة التحكم (اختياري - يظهر فقط إذا كان المستخدم هو المنشئ)
-        function checkIfBuilder() {
-            // اختياري: يظهر رابط للعودة إلى builder إذا كان المستخدم يدخل من نفس الجهاز
-            const builderExists = localStorage.getItem(projectKey);
-            if (builderExists && window.location.pathname.includes('quiz-user')) {
-                const header = document.querySelector('.bg-white.rounded-2xl.p-6');
-                if (header && !document.querySelector('.builder-link')) {
-                    const link = document.createElement('a');
-                    link.href = './builder.html';
-                    link.className = 'builder-link text-xs text-emerald-600 hover:text-emerald-800 mt-2 inline-block no-print';
-                    link.innerHTML = '<i class="fas fa-cog ml-1"></i> لوحة التحكم (للمعلم)';
-                    document.querySelector('.bg-white.rounded-2xl.p-6 div:last-child')?.appendChild(link);
-                }
-            }
-        }
-
-        // تهيئة الصفحة
-        if (loadQuestionsFromBuilder()) {
-            renderQuiz();
-        }
-        
+        if (loadQuestions()) renderQuiz();
         document.getElementById('submitQuizBtn')?.addEventListener('click', submitQuiz);
-        setTimeout(checkIfBuilder, 500);
     </script>
 </body>
 </html>
