@@ -11,31 +11,26 @@
         * { font-family: 'Tajawal', sans-serif; }
         body { background: linear-gradient(135deg, #f1f5f9 0%, #e2e8f0 100%); min-height: 100vh; }
         .question-card { transition: 0.2s; border-right: 4px solid transparent; }
-        .question-card:hover { transform: translateX(-3px); box-shadow: 0 8px 20px rgba(0,0,0,0.08); }
         .btn-submit { background: linear-gradient(135deg, #10b981 0%, #059669 100%); }
         @keyframes fadeIn { from { opacity: 0; transform: translateY(15px); } to { opacity: 1; transform: translateY(0); } }
         .animate-fade { animation: fadeIn 0.4s ease-out; }
         .loading { display: flex; justify-content: center; align-items: center; min-height: 400px; }
-        @media print { .no-print { display: none; } body { background: white; } }
+        @media print { .no-print { display: none; } }
     </style>
 </head>
 <body>
-    <div class="max-w-4xl mx-auto px-4 py-8 md:py-12">
+    <div class="max-w-4xl mx-auto px-4 py-8">
         <div class="bg-white rounded-2xl p-6 mb-8 shadow-md text-center no-print">
-            <div class="flex justify-center mb-3">
-                <div class="bg-emerald-600 w-14 h-14 rounded-2xl flex items-center justify-center shadow-lg">
-                    <i class="fas fa-graduation-cap text-white text-2xl"></i>
-                </div>
+            <div class="bg-emerald-600 w-14 h-14 rounded-2xl flex items-center justify-center shadow-lg mx-auto mb-3">
+                <i class="fas fa-graduation-cap text-white text-2xl"></i>
             </div>
             <h1 class="text-2xl font-bold text-slate-800">الامتحان <span class="text-emerald-600">الإلكتروني</span></h1>
             <p class="text-slate-500 text-sm mt-1">تم تحميل الأسئلة من لوحة التحكم</p>
         </div>
 
         <div id="loadingIndicator" class="loading">
-            <div class="text-center">
-                <div class="animate-spin rounded-full h-12 w-12 border-b-2 border-emerald-600 mx-auto"></div>
-                <p class="mt-3 text-slate-500">جاري تحميل الأسئلة...</p>
-            </div>
+            <div class="animate-spin rounded-full h-12 w-12 border-b-2 border-emerald-600 mx-auto"></div>
+            <p class="mt-3 text-slate-500">جاري تحميل الأسئلة...</p>
         </div>
 
         <div id="quizContainer" class="space-y-5 hidden"></div>
@@ -57,26 +52,24 @@
 
         function loadQuestions() {
             const stored = localStorage.getItem(STORAGE_KEY);
-            
             if (!stored) {
                 document.getElementById('loadingIndicator').innerHTML = `
-                    <div class="bg-amber-50 rounded-xl p-8 text-center border border-amber-200">
+                    <div class="bg-amber-50 rounded-xl p-8 text-center">
                         <i class="fas fa-exclamation-triangle text-amber-500 text-4xl mb-3"></i>
-                        <p class="text-slate-700">لا توجد أسئلة متاحة حالياً.</p>
-                        <p class="text-slate-500 text-sm mt-2">يرجى التواصل مع المشرف لإضافة الأسئلة أولاً.</p>
-                        <button onclick="location.reload()" class="mt-4 bg-emerald-600 text-white px-4 py-2 rounded-lg">🔄 إعادة المحاولة</button>
-                    </div>
-                `;
+                        <p>لا توجد أسئلة. يرجى التواصل مع المشرف.</p>
+                    </div>`;
                 return false;
             }
-
             try {
                 quizQuestions = JSON.parse(stored);
                 if (!Array.isArray(quizQuestions) || quizQuestions.length === 0) throw new Error();
+                // تأكد من وجود choices
+                quizQuestions = quizQuestions.filter(q => q.choices && q.choices.length > 0);
+                if (quizQuestions.length === 0) throw new Error();
                 userAnswers = new Array(quizQuestions.length).fill(null);
                 return true;
             } catch(e) {
-                document.getElementById('loadingIndicator').innerHTML = `<div class="bg-red-50 rounded-xl p-8 text-center"><i class="fas fa-database text-red-400 text-3xl"></i><p>خطأ في تحميل الأسئلة</p></div>`;
+                document.getElementById('loadingIndicator').innerHTML = `<div class="bg-red-50 p-8 text-center"><i class="fas fa-database text-red-400 text-3xl"></i><p>خطأ في تحميل الأسئلة</p></div>`;
                 return false;
             }
         }
@@ -86,17 +79,13 @@
             const loadingDiv = document.getElementById('loadingIndicator');
             if (!container) return;
 
-            let html = `<div class="mb-4 flex justify-between items-center no-print">
-                <span class="text-sm bg-emerald-100 text-emerald-700 px-3 py-1.5 rounded-full"><i class="far fa-file-alt ml-1"></i> عدد الأسئلة: ${quizQuestions.length}</span>
-            </div>`;
-
+            let html = `<div class="mb-4 text-sm bg-emerald-100 text-emerald-700 px-3 py-1.5 rounded-full inline-block">عدد الأسئلة: ${quizQuestions.length}</div>`;
             quizQuestions.forEach((q, idx) => {
                 let choicesHtml = '';
                 q.choices.forEach((choice, chIdx) => {
                     const isChecked = (userAnswers[idx] === chIdx) ? 'checked' : '';
                     let additionalClass = '';
                     let badgeHtml = '';
-                    
                     if (quizSubmitted) {
                         if (chIdx === q.correctChoiceIndex) {
                             additionalClass = 'bg-green-50 border-green-300';
@@ -107,7 +96,6 @@
                             badgeHtml = `<span class="mr-2 text-red-500 text-xs"><i class="fas fa-times-circle"></i> إجابتك</span>`;
                         }
                     }
-                    
                     choicesHtml += `
                         <label class="flex items-center gap-3 p-3 rounded-xl border border-slate-200 hover:bg-slate-50 cursor-pointer transition ${additionalClass}">
                             <input type="radio" name="q${idx}" value="${chIdx}" ${isChecked} data-qidx="${idx}" data-choice="${chIdx}" class="quiz-radio w-5 h-5 text-emerald-600" ${quizSubmitted ? 'disabled' : ''}>
@@ -115,9 +103,8 @@
                         </label>
                     `;
                 });
-
                 html += `
-                    <div class="question-card bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden animate-fade">
+                    <div class="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden animate-fade">
                         <div class="p-5 bg-gradient-to-r from-slate-50 to-white">
                             <h3 class="font-bold text-slate-800 text-lg flex gap-3">
                                 <span class="bg-emerald-100 text-emerald-700 w-7 h-7 rounded-full inline-flex items-center justify-center text-sm font-bold">${idx+1}</span>
@@ -128,12 +115,10 @@
                     </div>
                 `;
             });
-
             container.innerHTML = html;
             loadingDiv.classList.add('hidden');
             container.classList.remove('hidden');
             document.getElementById('submitArea')?.classList.remove('hidden');
-            
             if (!quizSubmitted) attachRadioEvents();
         }
 
@@ -157,7 +142,6 @@
                 alert("⚠️ يرجى الإجابة على جميع الأسئلة");
                 return;
             }
-
             quizSubmitted = true;
             let score = 0;
             const results = quizQuestions.map((q, idx) => {
@@ -165,7 +149,6 @@
                 if (isCorrect) score++;
                 return { questionText: q.text, userChoice: userAnswers[idx], correctIndex: q.correctChoiceIndex, choices: q.choices, isCorrect };
             });
-
             const percentage = Math.round((score / quizQuestions.length) * 100);
             renderQuiz();
             displayResults(score, quizQuestions.length, percentage, results);
@@ -175,37 +158,32 @@
             const resultDiv = document.getElementById('resultCard');
             let gradeClass = percentage >= 70 ? 'text-emerald-600' : (percentage >= 50 ? 'text-amber-600' : 'text-rose-600');
             let icon = percentage >= 70 ? 'fa-crown' : (percentage >= 50 ? 'fa-face-smile' : 'fa-book');
-            let feedback = percentage >= 70 ? 'ممتاز! أداء رائع 🎉' : (percentage >= 50 ? 'جيد جدًا 📚' : 'بحاجة للمذاكرة 💪');
-            
+            let feedback = percentage >= 70 ? 'ممتاز! 🎉' : (percentage >= 50 ? 'جيد جداً 📚' : 'بحاجة للمذاكرة 💪');
             let html = `
-                <div class="p-6 text-center bg-gradient-to-br from-slate-50 to-white">
+                <div class="p-6 text-center">
                     <i class="fas ${icon} text-5xl ${gradeClass} mb-3"></i>
                     <h2 class="text-2xl font-bold">نتيجتك: ${score} / ${total}</h2>
                     <div class="text-4xl font-extrabold ${gradeClass} mt-2">${percentage}%</div>
-                    <p class="text-slate-500 mt-2">${feedback}</p>
+                    <p class="text-slate-500">${feedback}</p>
                 </div>
                 <div class="p-5 max-h-96 overflow-y-auto">
                     <h4 class="font-bold mb-3">مراجعة الإجابات</h4>`;
-            
             results.forEach((r, i) => {
                 const userText = r.userChoice !== null ? escapeHtml(r.choices[r.userChoice]) : "لم يتم الإجابة";
                 const correctText = escapeHtml(r.choices[r.correctIndex]);
                 html += `<div class="mb-4 p-3 rounded-xl ${r.isCorrect ? 'bg-emerald-50 border-r-4 border-emerald-500' : 'bg-rose-50 border-r-4 border-rose-400'}">
                     <p class="font-bold">${i+1}. ${escapeHtml(r.questionText)}</p>
                     <p class="text-sm mt-1">إجابتك: ${userText} ${r.isCorrect ? '✓' : '✗'}</p>
-                    ${!r.isCorrect ? `<p class="text-sm text-emerald-700">الإجابة الصحيحة: ${correctText}</p>` : ''}
+                    ${!r.isCorrect ? `<p class="text-sm text-emerald-700">الصحيح: ${correctText}</p>` : ''}
                 </div>`;
             });
-            
             html += `</div><div class="p-4 bg-slate-50 flex justify-center gap-3 no-print">
                         <button id="retakeBtn" class="bg-emerald-600 text-white px-6 py-2 rounded-xl">🔄 إعادة الامتحان</button>
-                        <button id="printBtn" class="bg-slate-600 text-white px-6 py-2 rounded-xl">🖨️ طباعة النتيجة</button>
+                        <button id="printBtn" class="bg-slate-600 text-white px-6 py-2 rounded-xl">🖨️ طباعة</button>
                     </div>`;
-            
             resultDiv.innerHTML = html;
             resultDiv.classList.remove('hidden');
             document.getElementById('submitArea').classList.add('hidden');
-            
             document.getElementById('retakeBtn')?.addEventListener('click', () => resetExam());
             document.getElementById('printBtn')?.addEventListener('click', () => window.print());
         }
