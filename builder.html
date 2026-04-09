@@ -7,20 +7,6 @@
     <link href="https://fonts.googleapis.com/css2?family=Tajawal:wght@400;500;700;800&display=swap" rel="stylesheet">
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
-    
-    <!-- حل مشكلة localStorage على GitHub Pages -->
-    <script type="importmap">
-        {
-            "imports": {
-                "github-pages-local-storage": "https://tomashubelbauer.github.io/github-pages-local-storage/index.js"
-            }
-        }
-    </script>
-    <script type="module">
-        import 'github-pages-local-storage';
-        console.log('✅ localStorage patched for GitHub Pages - Quiz Platform');
-    </script>
-    
     <style>
         * { font-family: 'Tajawal', sans-serif; }
         body { background: linear-gradient(135deg, #f0f9ff 0%, #e0f2fe 100%); min-height: 100vh; }
@@ -34,7 +20,6 @@
 </head>
 <body class="antialiased">
     <div class="max-w-6xl mx-auto px-4 py-8">
-        <!-- Header -->
         <div class="bg-white rounded-2xl p-6 mb-8 shadow-md">
             <div class="flex flex-wrap justify-between items-center gap-4">
                 <div class="flex items-center gap-3">
@@ -57,48 +42,35 @@
             </div>
         </div>
 
-        <!-- Stats -->
         <div class="bg-white/80 backdrop-blur rounded-xl p-4 mb-6 flex flex-wrap justify-between items-center gap-3">
             <div class="flex items-center gap-3">
                 <div class="bg-indigo-100 p-2 rounded-full"><i class="fas fa-question-circle text-indigo-600"></i></div>
                 <span class="font-bold text-slate-700">عدد الأسئلة: <span id="questionCount">0</span></span>
             </div>
-            <div class="text-xs text-slate-500 flex items-center gap-2">
-                <i class="fas fa-globe"></i> سيتم نشر التغييرات للمستخدمين بعد الضغط على "حفظ"
-                <i class="fas fa-database text-emerald-600 mr-1"></i> <span id="storageStatus">✅ متصل</span>
-            </div>
+            <div class="text-xs text-slate-500"><i class="fas fa-globe"></i> سيتم نشر التغييرات للمستخدمين بعد الضغط على "حفظ"</div>
         </div>
 
-        <!-- Questions Container -->
         <div id="questionsContainer" class="space-y-4"></div>
 
-        <!-- Floating FAB for mobile -->
         <div class="fixed bottom-6 right-6 md:hidden">
             <button id="fabAddBtn" class="bg-indigo-600 text-white p-4 rounded-full shadow-xl"><i class="fas fa-plus text-xl"></i></button>
         </div>
     </div>
 
     <script>
-        // ---------- الأسئلة المخزنة محلياً ----------
         let questions = [];
-        let projectKey = 'quizPlatformQuestions'; // مفتاح مخصص لهذا المشروع
+        const STORAGE_KEY = 'quizPlatformQuestions';
 
-        // تحميل الأسئلة من localStorage أو استخدام افتراضية
         function loadQuestions() {
-            try {
-                const stored = localStorage.getItem(projectKey);
-                if (stored) {
+            const stored = localStorage.getItem(STORAGE_KEY);
+            if (stored) {
+                try {
                     questions = JSON.parse(stored);
-                    if (!Array.isArray(questions)) questions = getDefaultQuestions();
-                } else {
-                    questions = getDefaultQuestions();
-                }
-            } catch(e) {
-                console.error('خطأ في تحميل الأسئلة:', e);
+                } catch(e) { questions = getDefaultQuestions(); }
+            } else {
                 questions = getDefaultQuestions();
             }
             renderQuestions();
-            updateStorageStatus();
         }
 
         function getDefaultQuestions() {
@@ -110,22 +82,6 @@
         }
 
         function generateId() { return Date.now() + '-' + Math.random().toString(36).substring(2, 8); }
-
-        function updateStorageStatus() {
-            const statusEl = document.getElementById('storageStatus');
-            if (statusEl) {
-                const testKey = '_test_' + Date.now();
-                try {
-                    localStorage.setItem(testKey, 'test');
-                    localStorage.removeItem(testKey);
-                    statusEl.innerHTML = '✅ متصل | المشروع: ' + window.location.pathname.split('/').pop() || 'quiz';
-                    statusEl.className = 'text-emerald-600 text-xs';
-                } catch(e) {
-                    statusEl.innerHTML = '⚠️ localStorage غير متاح';
-                    statusEl.className = 'text-amber-600 text-xs';
-                }
-            }
-        }
 
         function renderQuestions() {
             const container = document.getElementById('questionsContainer');
@@ -152,7 +108,7 @@
                 });
 
                 html += `
-                    <div class="bg-white rounded-xl shadow-md overflow-hidden question-card" data-question-id="${qid}">
+                    <div class="bg-white rounded-xl shadow-md overflow-hidden question-card">
                         <div class="p-4 bg-gradient-to-r from-indigo-50 to-white border-b">
                             <div class="flex justify-between items-start">
                                 <div class="flex-1">
@@ -174,47 +130,26 @@
             document.getElementById('questionCount').innerText = questions.length;
         }
 
-        // حفظ الأسئلة ونشرها للمستخدمين
         function publishToUsers() {
-            try {
-                localStorage.setItem(projectKey, JSON.stringify(questions));
-                // التحقق من الحفظ
-                const saved = localStorage.getItem(projectKey);
-                if (saved) {
-                    showToast("✅ تم حفظ الأسئلة ونشرها! المستخدمون سيرون التحديثات فور تحديث الصفحة.", "success");
-                } else {
-                    showToast("❌ حدث خطأ في الحفظ، حاول مرة أخرى", "error");
-                }
-            } catch(e) {
-                showToast("❌ خطأ: مساحة التخزين ممتلئة أو غير متاحة", "error");
-                console.error(e);
-            }
+            localStorage.setItem(STORAGE_KEY, JSON.stringify(questions));
+            showToast("✅ تم حفظ الأسئلة! المستخدمون سيرون التحديثات عند تحديث الصفحة", "success");
         }
 
-        // وظائف التعديل
         function addNewQuestion() {
-            questions.push({
-                id: generateId(),
-                text: "سؤال جديد",
-                choices: ["خيار 1", "خيار 2", "خيار 3"],
-                correctChoiceIndex: 0
-            });
+            questions.push({ id: generateId(), text: "سؤال جديد", choices: ["خيار 1", "خيار 2", "خيار 3"], correctChoiceIndex: 0 });
             renderQuestions();
-            showToast("✨ تم إضافة سؤال جديد (لم ينشر بعد - اضغط حفظ)", "info");
+            showToast("✨ تم إضافة سؤال جديد (اضغط حفظ لنشره)", "info");
         }
 
         function deleteQuestion(qid) {
             questions = questions.filter(q => q.id !== qid);
             renderQuestions();
-            showToast("🗑️ تم حذف السؤال (لم ينشر بعد - اضغط حفظ)", "info");
+            showToast("🗑️ تم حذف السؤال (اضغط حفظ لنشره)", "info");
         }
 
         function addChoiceToQuestion(qid) {
             const q = questions.find(q => q.id === qid);
-            if (q) {
-                q.choices.push(`خيار ${q.choices.length + 1}`);
-                renderQuestions();
-            }
+            if (q) { q.choices.push(`خيار ${q.choices.length + 1}`); renderQuestions(); }
         }
 
         function removeChoiceFromQuestion(qid, choiceIdx) {
@@ -265,7 +200,6 @@
             });
         }
 
-        // Event Delegation
         function setupEvents() {
             const container = document.getElementById('questionsContainer');
             if (!container) return;
@@ -282,7 +216,6 @@
             container.addEventListener('change', (e) => {
                 if (e.target.classList.contains('correct-radio')) {
                     updateCorrectAnswer(e.target.getAttribute('data-qid'), e.target.getAttribute('data-choice-idx'));
-                    showToast("✓ تم تغيير الإجابة الصحيحة (لم تنشر بعد)", "info");
                 }
             });
 
@@ -301,26 +234,12 @@
             });
         }
 
-        // أزرار خارجية
         document.getElementById('addQuestionBtn')?.addEventListener('click', addNewQuestion);
         document.getElementById('fabAddBtn')?.addEventListener('click', addNewQuestion);
         document.getElementById('saveToStorageBtn')?.addEventListener('click', publishToUsers);
 
-        // رابط العودة إلى صفحة الامتحان (اختياري)
-        function addNavLink() {
-            const header = document.querySelector('.bg-white.rounded-2xl.p-6');
-            if (header && !document.querySelector('.exam-link')) {
-                const link = document.createElement('a');
-                link.href = './quiz-user.html';
-                link.className = 'exam-link text-sm text-indigo-600 hover:text-indigo-800 mt-2 inline-block';
-                link.innerHTML = '<i class="fas fa-external-link-alt ml-1"></i> معاينة صفحة الامتحان';
-                document.querySelector('.flex.flex-wrap.justify-between.items-center.gap-4 div:first-child div:first-child').appendChild(link);
-            }
-        }
-
         loadQuestions();
         setupEvents();
-        setTimeout(addNavLink, 500);
     </script>
 </body>
 </html>
