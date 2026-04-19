@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>لوحة التحكم - مدير الأسئلة (Gist)</title>
+    <title>لوحة التحكم - مدير الأسئلة (مع مدة الامتحان)</title>
     <link href="https://fonts.googleapis.com/css2?family=Tajawal:wght@400;500;700;800&display=swap" rel="stylesheet">
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
@@ -40,16 +40,20 @@
             </div>
         </div>
 
-        <!-- إعدادات Gist -->
+        <!-- إعدادات Gist والمدة -->
         <div class="bg-amber-50 rounded-xl p-4 mb-6 border border-amber-200">
             <div class="flex flex-wrap gap-4 items-center">
                 <div class="flex-1 min-w-[200px]">
                     <label class="text-sm font-bold text-amber-800 block mb-1">معرف Gist (ID)</label>
-                    <input type="text" id="gistIdInput" class="w-full px-3 py-2 border border-amber-300 rounded-lg text-sm" placeholder="مثال: abc123def456" value="">
+                    <input type="text" id="gistIdInput" class="w-full px-3 py-2 border border-amber-300 rounded-lg text-sm" placeholder="مثال: abc123def456">
                 </div>
                 <div class="flex-1 min-w-[200px]">
                     <label class="text-sm font-bold text-amber-800 block mb-1">GitHub Token (صلاحية gist)</label>
                     <input type="password" id="gistTokenInput" class="w-full px-3 py-2 border border-amber-300 rounded-lg text-sm" placeholder="أدخل التوكن هنا">
+                </div>
+                <div class="flex-1 min-w-[150px]">
+                    <label class="text-sm font-bold text-amber-800 block mb-1">⏱️ مدة الامتحان (دقائق)</label>
+                    <input type="number" id="examDurationInput" class="w-full px-3 py-2 border border-amber-300 rounded-lg text-sm" value="30" min="1" max="180">
                 </div>
                 <div>
                     <button id="testGistBtn" class="bg-amber-600 text-white px-4 py-2 rounded-lg text-sm">🔍 اختبار الاتصال</button>
@@ -74,11 +78,9 @@
         let gistId = localStorage.getItem('quiz_gist_id') || '';
         let gistToken = localStorage.getItem('quiz_gist_token') || '';
         
-        // تحميل الإعدادات المحفوظة
         document.getElementById('gistIdInput').value = gistId;
         document.getElementById('gistTokenInput').value = gistToken;
         
-        // حفظ الإعدادات عند التغيير
         document.getElementById('gistIdInput').addEventListener('change', (e) => {
             gistId = e.target.value;
             localStorage.setItem('quiz_gist_id', gistId);
@@ -88,7 +90,6 @@
             localStorage.setItem('quiz_gist_token', gistToken);
         });
         
-        // تحميل الأسئلة من Gist
         async function loadQuestionsFromGist() {
             if (!gistId) {
                 document.getElementById('syncStatus').innerHTML = '⚠️ يرجى إدخال معرف Gist';
@@ -102,7 +103,8 @@
                 if (content) {
                     const parsed = JSON.parse(content);
                     questions = parsed.questions || [];
-                    // تأكد من صحة البيانات
+                    const duration = parsed.duration || 30;
+                    document.getElementById('examDurationInput').value = duration;
                     questions = questions.map(q => ({
                         ...q,
                         choices: q.choices || ["خيار 1", "خيار 2", "خيار 3"],
@@ -118,15 +120,13 @@
             return false;
         }
         
-        // حفظ الأسئلة إلى Gist
         async function saveQuestionsToGist() {
             if (!gistId || !gistToken) {
                 alert('الرجاء إدخال معرف Gist والتوكن أولاً');
                 return;
             }
-            
-            const content = JSON.stringify({ questions: questions }, null, 2);
-            
+            const duration = parseInt(document.getElementById('examDurationInput').value) || 30;
+            const content = JSON.stringify({ duration: duration, questions: questions }, null, 2);
             try {
                 const response = await fetch(`https://api.github.com/gists/${gistId}`, {
                     method: 'PATCH',
@@ -135,14 +135,11 @@
                         'Content-Type': 'application/json'
                     },
                     body: JSON.stringify({
-                        files: {
-                            'questions.json': { content: content }
-                        }
+                        files: { 'questions.json': { content: content } }
                     })
                 });
-                
                 if (response.ok) {
-                    showToast('✅ تم حفظ الأسئلة ونشرها لجميع المستخدمين!', 'success');
+                    showToast('✅ تم حفظ الأسئلة والمدة ونشرها لجميع المستخدمين!', 'success');
                     document.getElementById('syncStatus').innerHTML = '✅ تم النشر بنجاح';
                 } else {
                     const error = await response.json();
@@ -153,34 +150,23 @@
             }
         }
         
-        // اختبار الاتصال
         document.getElementById('testGistBtn').addEventListener('click', async () => {
-            if (!gistId) {
-                alert('أدخل معرف Gist أولاً');
-                return;
-            }
+            if (!gistId) { alert('أدخل معرف Gist أولاً'); return; }
             try {
                 const response = await fetch(`https://api.github.com/gists/${gistId}`);
-                if (response.ok) {
-                    showToast('✅ الاتصال ناجح! يمكنك الآن حفظ الأسئلة', 'success');
-                } else {
-                    showToast('❌ Gist غير موجود، تأكد من المعرف', 'error');
-                }
-            } catch(e) {
-                showToast('❌ فشل الاتصال', 'error');
-            }
+                if (response.ok) showToast('✅ الاتصال ناجح!', 'success');
+                else showToast('❌ Gist غير موجود', 'error');
+            } catch(e) { showToast('❌ فشل الاتصال', 'error'); }
         });
         
-        // باقي دوال إدارة الأسئلة (نفس السابق)
+        // دوال إدارة الأسئلة (نفس السابق)
         function getDefaultQuestions() {
             return [
                 { id: Date.now() + '1', text: "ما هي عاصمة المملكة العربية السعودية؟", choices: ["جدة", "مكة", "الرياض", "الدمام"], correctChoiceIndex: 2 },
                 { id: Date.now() + '2', text: "ما هي لغة البرمجة الأكثر استخداماً لتطوير الويب؟", choices: ["Python", "Java", "JavaScript", "C++"], correctChoiceIndex: 2 }
             ];
         }
-        
         function generateId() { return Date.now() + '-' + Math.random().toString(36).substring(2, 8); }
-        
         function renderQuestions() {
             const container = document.getElementById('questionsContainer');
             if (!container) return;
@@ -189,7 +175,6 @@
                 document.getElementById('questionCount').innerText = '0';
                 return;
             }
-            
             let html = '';
             questions.forEach((q, idx) => {
                 const qid = q.id;
@@ -222,23 +207,19 @@
             container.innerHTML = html;
             document.getElementById('questionCount').innerText = questions.length;
         }
-        
         function addNewQuestion() {
             questions.push({ id: generateId(), text: "سؤال جديد", choices: ["خيار 1", "خيار 2", "خيار 3"], correctChoiceIndex: 0 });
             renderQuestions();
             showToast("✨ تم إضافة سؤال (اضغط حفظ للنشر)", "info");
         }
-        
         function deleteQuestion(qid) {
             questions = questions.filter(q => q.id !== qid);
             renderQuestions();
         }
-        
         function addChoiceToQuestion(qid) {
             const q = questions.find(q => q.id === qid);
             if (q) { q.choices.push(`خيار ${q.choices.length + 1}`); renderQuestions(); }
         }
-        
         function removeChoiceFromQuestion(qid, choiceIdx) {
             const q = questions.find(q => q.id === qid);
             if (q && q.choices.length > 2) {
@@ -247,22 +228,18 @@
                 renderQuestions();
             }
         }
-        
         function updateQuestionText(qid, newText) {
             const q = questions.find(q => q.id === qid);
             if (q) q.text = newText;
         }
-        
         function updateChoiceText(qid, choiceIdx, newText) {
             const q = questions.find(q => q.id === qid);
             if (q && q.choices[choiceIdx]) q.choices[choiceIdx] = newText;
         }
-        
         function updateCorrectAnswer(qid, choiceIdx) {
             const q = questions.find(q => q.id === qid);
             if (q) q.correctChoiceIndex = parseInt(choiceIdx, 10);
         }
-        
         function showToast(msg, type) {
             let toast = document.getElementById('customToast');
             if (toast) toast.remove();
@@ -273,12 +250,10 @@
             document.body.appendChild(toast);
             setTimeout(() => toast.remove(), 3000);
         }
-        
         function escapeHtml(str) {
             if (!str) return '';
             return str.replace(/[&<>]/g, m => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;' }[m] || m));
         }
-        
         function setupEvents() {
             const container = document.getElementById('questionsContainer');
             container.addEventListener('input', (e) => {
@@ -302,7 +277,6 @@
         document.getElementById('fabAddBtn')?.addEventListener('click', addNewQuestion);
         document.getElementById('saveToGistBtn')?.addEventListener('click', saveQuestionsToGist);
         
-        // تحميل أولي
         if (gistId) loadQuestionsFromGist();
         else questions = getDefaultQuestions();
         renderQuestions();
