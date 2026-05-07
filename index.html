@@ -68,42 +68,77 @@
         // 👇 ضع معرف Gist الخاص بك هنا
         const GIST_ID = '7f7b08150e34fc0c8a5b00063944942a';
         
-        async function loadQuestions() {
-            const loadingDiv = document.getElementById('loadingIndicator');
-            const container = document.getElementById('quizContainer');
+          async function loadQuestions() {
+        const loadingDiv = document.getElementById('loadingIndicator');
+        const container = document.getElementById('quizContainer');
+        
+        // دالة مساعدة لحفظ البيانات في Local Storage
+        function saveToCache(data) {
+            const cacheData = {
+                timestamp: Date.now(),
+                questions: data.questions,
+                duration: data.duration
+            };
+            localStorage.setItem('quizData', JSON.stringify(cacheData));
+        }
+
+        // 1. محاولة قراءة البيانات من Local Storage
+        const cachedData = localStorage.getItem('quizData');
+        if (cachedData) {
             try {
-                const response = await fetch(`https://api.github.com/gists/${GIST_ID}`);
-                if (!response.ok) throw new Error(`HTTP ${response.status}`);
-                const data = await response.json();
-                if (!data.files || !data.files['questions.json']) throw new Error('questions.json غير موجود');
-                const content = data.files['questions.json'].content;
-                const parsed = JSON.parse(content);
-                quizQuestions = parsed.questions || [];
-                const durationMinutes = parsed.duration || 30;
-                if (quizQuestions.length === 0) throw new Error('لا توجد أسئلة');
-                
-                // تهيئة الإجابات
-                userAnswers = new Array(quizQuestions.length).fill(null);
-                
-                // بدء المؤقت
-                timeLeftSeconds = durationMinutes * 60;
-                startTimer();
-                
-                renderQuiz();
-                loadingDiv.classList.add('hidden');
-                container.classList.remove('hidden');
-                document.getElementById('submitArea').classList.remove('hidden');
-            } catch(error) {
-                loadingDiv.innerHTML = `
-                    <div class="bg-red-50 rounded-xl p-8 text-center max-w-md mx-auto border border-red-200">
-                        <i class="fas fa-exclamation-triangle text-red-500 text-5xl mb-3"></i>
-                        <p class="text-slate-800 font-bold mb-2">خطأ في تحميل الأسئلة</p>
-                        <p class="text-slate-600 text-sm mb-4">${error.message}</p>
-                        <button onclick="location.reload()" class="bg-emerald-600 text-white px-5 py-2 rounded-lg">🔄 إعادة المحاولة</button>
-                    </div>
-                `;
+                const parsedCache = JSON.parse(cachedData);
+                // التحقق من أن البيانات المخزنة مؤقتًا لم تتجاوز 10 دقائق (10 * 60 * 1000 مللي ثانية)
+                if (Date.now() - parsedCache.timestamp < 10 * 60 * 1000) {
+                    console.log('✅ تم تحميل الأسئلة من التخزين المؤقت');
+                    quizQuestions = parsedCache.questions || [];
+                    const durationMinutes = parsedCache.duration || 30;
+                    userAnswers = new Array(quizQuestions.length).fill(null);
+                    timeLeftSeconds = durationMinutes * 60;
+                    startTimer();
+                    renderQuiz();
+                    loadingDiv.classList.add('hidden');
+                    container.classList.remove('hidden');
+                    document.getElementById('submitArea').classList.remove('hidden');
+                    return; // تم التحميل من التخزين المؤقت، ننهي الدالة هنا
+                }
+            } catch(e) {
+                console.warn('فشل في قراءة التخزين المؤقت', e);
             }
         }
+
+        // 2. إذا لم توجد نسخة مؤقتة صالحة، نقوم بجلبها من GitHub API
+        try {
+            console.log('🔄 جلب الأسئلة من GitHub API...');
+            const response = await fetch(`https://api.github.com/gists/${GIST_ID}`);
+            if (!response.ok) throw new Error(`HTTP ${response.status}`);
+            const data = await response.json();
+            if (!data.files || !data.files['questions.json']) throw new Error('questions.json غير موجود');
+            const content = data.files['questions.json'].content;
+            const parsed = JSON.parse(content);
+            quizQuestions = parsed.questions || [];
+            const durationMinutes = parsed.duration || 30;
+            
+            // حفظ البيانات الجديدة في التخزين المؤقت
+            saveToCache({ questions: quizQuestions, duration: durationMinutes });
+            
+            if (quizQuestions.length === 0) throw new Error('لا توجد أسئلة');
+            userAnswers = new Array(quizQuestions.length).fill(null);
+            timeLeftSeconds = durationMinutes * 60;
+            startTimer();
+            renderQuiz();
+            loadingDiv.classList.add('hidden');
+            container.classList.remove('hidden');
+            document.getElementById('submitArea').classList.remove('hidden');
+        } catch(error) {
+            console.error('خطأ في التحميل:', error);
+            loadingDiv.innerHTML = `<div class="bg-red-50 rounded-xl p-8 text-center max-w-md mx-auto border border-red-200">
+                <i class="fas fa-exclamation-triangle text-red-500 text-5xl mb-3"></i>
+                <p class="text-slate-800 font-bold mb-2">خطأ في تحميل الأسئلة</p>
+                <p class="text-slate-600 text-sm mb-4">${error.message}</p>
+                <button onclick="location.reload()" class="bg-emerald-600 text-white px-5 py-2 rounded-lg">🔄 إعادة المحاولة</button>
+            </div>`;
+        }
+    }
         
         function startTimer() {
             if (timerInterval) clearInterval(timerInterval);
