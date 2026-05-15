@@ -212,6 +212,18 @@
             container.innerHTML = html;
             document.getElementById('questionCount').innerText = questions.length;
         }
+               // حفظ تلقائي بعد أي تعديل (اختياري)
+        let autoSaveTimeout = null;
+        
+        function autoSaveToGist() {
+            if (autoSaveTimeout) clearTimeout(autoSaveTimeout);
+            autoSaveTimeout = setTimeout(() => {
+                if (gistId && gistToken && questions.length > 0) {
+                    saveQuestionsToGist();
+                    showToast('💾 تم الحفظ التلقائي', 'success');
+                }
+            }, 2000);
+        }
         function addNewQuestion() {
             questions.push({ id: generateId(), text: "سؤال جديد", choices: ["خيار 1", "خيار 2", "خيار 3"], correctChoiceIndex: 0 });
             renderQuestions();
@@ -224,6 +236,7 @@
         function addChoiceToQuestion(qid) {
             const q = questions.find(q => q.id === qid);
             if (q) { q.choices.push(`خيار ${q.choices.length + 1}`); renderQuestions(); }
+            autoSaveToGist();
         }
         function removeChoiceFromQuestion(qid, choiceIdx) {
             const q = questions.find(q => q.id === qid);
@@ -231,19 +244,23 @@
                 q.choices.splice(choiceIdx, 1);
                 if (q.correctChoiceIndex >= q.choices.length) q.correctChoiceIndex = q.choices.length - 1;
                 renderQuestions();
+                autoSaveToGist();
             }
         }
         function updateQuestionText(qid, newText) {
             const q = questions.find(q => q.id === qid);
             if (q) q.text = newText;
+            autoSaveToGist();
         }
         function updateChoiceText(qid, choiceIdx, newText) {
             const q = questions.find(q => q.id === qid);
             if (q && q.choices[choiceIdx]) q.choices[choiceIdx] = newText;
+            autoSaveToGist();
         }
         function updateCorrectAnswer(qid, choiceIdx) {
             const q = questions.find(q => q.id === qid);
             if (q) q.correctChoiceIndex = parseInt(choiceIdx, 10);
+            autoSaveToGist();
         }
         function showToast(msg, type) {
             let toast = document.getElementById('customToast');
@@ -277,6 +294,7 @@
                 if (remChoice) { removeChoiceFromQuestion(remChoice.dataset.qid, parseInt(remChoice.dataset.choiceIdx)); return; }
             });
         }
+ 
         
         document.getElementById('addQuestionBtn')?.addEventListener('click', addNewQuestion);
         document.getElementById('fabAddBtn')?.addEventListener('click', addNewQuestion);
