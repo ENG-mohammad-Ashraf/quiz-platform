@@ -239,10 +239,8 @@
     </style>
 </head>
 
-<div class="min-h-screen flex items-center justify-center bg-gradient-to-br from-slate-900 to-slate-800">
-    <h1 class="message" >.This page will be available soon</h1>
-</div>
-<body><!--
+<body>
+    <div id="mainContent" style="display: none;">
     <div class="max-w-4xl mx-auto px-4 py-8">
         <div class="bg-white rounded-2xl p-6 mb-6 shadow-md text-center no-print relative">
             <button id="darkModeToggle" class="absolute left-4 top-4 text-xl text-slate-600 hover:text-slate-800 transition">
@@ -311,8 +309,108 @@
             </div>
         </div>
     </div>
--->
-    <script>
+</div>
+<!-- نافذة إدخال كلمة المرور -->
+<div id="passwordModal" style="display: flex; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.85); z-index: 9999; justify-content: center; align-items: center; font-family: 'Tajawal', sans-serif;">
+    <div style="background: white; border-radius: 28px; padding: 35px; width: 380px; text-align: center; box-shadow: 0 25px 45px rgba(0,0,0,0.3); direction: rtl;">
+        <div style="background: linear-gradient(135deg, #10b981, #059669); width: 65px; height: 65px; border-radius: 35px; display: flex; align-items: center; justify-content: center; margin: 0 auto 20px;">
+            <i class="fas fa-shield-alt" style="font-size: 30px; color: white;"></i>
+        </div>
+        <h2 style="margin-bottom: 8px; color: #1e293b;">🔐 وصول محدود</h2>
+        <p style="color: #64748b; font-size: 14px; margin-bottom: 25px;">هذه المنصة في مرحلة الاختبار المغلق</p>
+        <input type="password" id="passwordInput" placeholder="••••••" autocomplete="off" style="width: 100%; padding: 14px; border: 2px solid #e2e8f0; border-radius: 14px; font-size: 16px; text-align: center; margin-bottom: 20px; outline: none; font-family: monospace; transition: 0.2s;">
+        <button id="submitPasswordBtn" style="background: linear-gradient(135deg, #10b981, #059669); color: white; border: none; padding: 14px 24px; border-radius: 40px; font-size: 16px; cursor: pointer; width: 100%; font-weight: bold; transition: 0.2s;">تأكيد الدخول</button>
+        <p id="errorMsg" style="color: #ef4444; font-size: 13px; margin-top: 18px; display: none;">❌ كلمة المرور غير صحيحة</p>
+    </div>
+</div>
+
+<script>
+    async function hashPassword(password) {
+        const encoder = new TextEncoder();
+        const data = encoder.encode(password);
+        const hashBuffer = await crypto.subtle.digest('SHA-256', data);
+        const hashArray = Array.from(new Uint8Array(hashBuffer));
+        const hashHex = hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
+        return hashHex;
+    }
+    
+    // ✅ الـ Hash الصحيح لكلمة السر: 7f7b08150e34fc0c8a5b00063944942aaaa
+    const CORRECT_PASSWORD_HASH = "f9f83fac69dca19d4b42a42863c21b87117530ed7367a4f2f6c9433686b8ca0b";
+    
+    (async function init() {
+        const modal = document.getElementById('passwordModal');
+        const passwordInput = document.getElementById('passwordInput');
+        const submitBtn = document.getElementById('submitPasswordBtn');
+        const errorMsg = document.getElementById('errorMsg');
+        
+        // البحث عن المحتوى الرئيسي
+        let mainContent = document.getElementById('mainContent');
+        if (!mainContent) {
+            mainContent = document.querySelector('.max-w-4xl, .quiz-container, #quizContainer');
+            if (mainContent && mainContent.parentElement) mainContent = mainContent.parentElement;
+        }
+        if (!mainContent) {
+            const wrapper = document.createElement('div');
+            wrapper.id = 'mainContent';
+            wrapper.style.display = 'none';
+            while (document.body.firstChild && document.body.firstChild !== modal) {
+                wrapper.appendChild(document.body.firstChild);
+            }
+            document.body.insertBefore(wrapper, modal);
+            mainContent = wrapper;
+        }
+        if (mainContent) mainContent.style.display = 'none';
+        
+        // التحقق من الجلسة السابقة
+        if (sessionStorage.getItem('quiz_authorized') === 'true') {
+            modal.style.display = 'none';
+            if (mainContent) mainContent.style.display = 'block';
+            return;
+        }
+        
+        async function checkPassword() {
+            const userPass = passwordInput.value;
+            if (!userPass) {
+                errorMsg.style.display = 'block';
+                errorMsg.innerText = '❌ الرجاء إدخال كلمة المرور';
+                return;
+            }
+            
+            const userPassHash = await hashPassword(userPass);
+            
+            if (userPassHash === CORRECT_PASSWORD_HASH) {
+                modal.style.opacity = '0';
+                setTimeout(() => {
+                    modal.style.display = 'none';
+                    if (mainContent) mainContent.style.display = 'block';
+                }, 300);
+                sessionStorage.setItem('quiz_authorized', 'true');
+            } else {
+                errorMsg.style.display = 'block';
+                errorMsg.innerText = '❌ كلمة المرور غير صحيحة';
+                passwordInput.value = '';
+                passwordInput.focus();
+                const modalContent = modal.querySelector('div');
+                modalContent.style.transform = 'translateX(-5px)';
+                setTimeout(() => { modalContent.style.transform = ''; }, 200);
+            }
+        }
+        
+        submitBtn.addEventListener('click', checkPassword);
+        passwordInput.addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') checkPassword();
+        });
+        
+        modal.addEventListener('click', (e) => {
+            if (e.target === modal) {
+                modal.style.transform = 'scale(1.01)';
+                setTimeout(() => { modal.style.transform = ''; }, 200);
+            }
+        });
+    })();
+</script>
+
+<script>
         
         let quizQuestions = [];
         let userAnswers = [];
